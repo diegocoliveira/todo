@@ -1,12 +1,7 @@
-/*
-   no caso da variável answer é mais interessando usar ela mutável ou sombreamento?
-*/
-
 fn main() {
-    let mut answer:String; // sem essa linha
     println!("😃_>> Olá, gostaria de adicionar um novo TODO? (s/n) ");
     loop {
-        answer = input(); //essa linha no lugar: let answer = input();
+        let answer = input();
         if answer == "s" {
             add_todo();
             println!("😃_>> Gostaria de adicionar outro TODO? (s/n) ");
