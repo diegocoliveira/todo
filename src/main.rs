@@ -1,3 +1,16 @@
+use std::io::{Stdin, Stdout, Write};
+
+#[derive(Debug, Clone)]
+struct Todo {
+    message: String,
+}
+
+impl Todo {
+    fn new(message: String) -> Self {
+        Self { message }
+    }
+}
+
 fn main() {
     println!("😃_>> Olá, gostaria de adicionar um novo TODO? (s/n) ");
     loop {
@@ -16,9 +29,10 @@ fn main() {
 
 fn add_todo() {
     println!("😃 >> Qual é o TODO?");
-    let todo = input();
+    let message = input();
+    let todo = Todo::new(message);
     println!("\n😃_>> O TODO foi adicionado com sucesso! \n");
-    println!("📝 - {} \n", todo);
+    println!("📝 - {:?} \n", todo);
 }
 
 fn input() -> String {
