@@ -37,8 +37,7 @@ impl Terminal {
             if answer == "s" {
                 println!("😃 >> Qual é o TODO?");
                 let message = self.input();
-                let todo = Todo::new(message);
-                return todo;
+                return Todo::new(message);
             } else if answer == "n" {
                 println!("😃_>> Obrigado por usar o TODO-CLI! 👋");
                 std::process::exit(0);
