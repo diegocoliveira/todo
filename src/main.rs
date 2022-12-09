@@ -45,10 +45,10 @@ impl Terminal {
 
     fn input(&mut self) -> Result<String, TerminalError> {
         let mut buf = String::new();
-        match self.stdin.read_line(&mut buf) {
-            Ok(_) => Ok(buf.trim().to_string()),
-            Err(err) => Err(TerminalError::Stdin(err)),
-        }
+        self.stdin
+            .read_line(&mut buf)
+            .map_err(TerminalError::Stdin)?;
+        Ok(buf.trim().to_string())
     }
 
     fn ask_for_new_todo(&mut self) -> Result<Option<Todo>, TerminalError> {
@@ -56,29 +56,24 @@ impl Terminal {
         loop {
             let answer = self.input()?;
             match answer.as_str() {
-                "s" => {
-                    println!("😃 >> Qual é o TODO?");
-                    let message = self.input()?;
-                    return Ok(Some(Todo::new(message)));
-                }
-                "n" => {
-                    return Ok(None);
-                }
+                "s" => return Ok(Some(self.add_todo()?)),
+                "n" => return Ok(None),
                 "xyz" => return Err(TerminalError::Test("AlphaEdtech & TerraMagna".to_string())),
-                _ => {
-                    println!("🤨_>> Desculpa eu não entendi. Digite 's' se deseja adicionar um novo TODO ou 'n' se deseja sair. ");
-                }
+                _ =>  println!("🤨_>> Desculpa eu não entendi. Digite 's' se deseja adicionar um novo TODO ou 'n' se deseja sair. ")
             }
         }
     }
 
+    fn add_todo(&mut self) -> Result<Todo, TerminalError> {
+        println!("😃 >> Qual é o TODO?");
+        let message = self.input()?;
+        Ok(Todo::new(message))
+    }
+
     fn show_todo(&mut self, todo: &Todo) -> Result<(), TerminalError> {
-        if let Err(err) = writeln!(self.stdout, "\n😃_>> O TODO foi adicionado com sucesso! \n") {
-            return Err(TerminalError::Stdout(err));
-        }
-        if let Err(err) = writeln!(self.stdout, "📝 - {:?} \n", todo) {
-            return Err(TerminalError::Stdout(err));
-        };
+        writeln!(self.stdout, "\n😃_>> O TODO foi adicionado com sucesso! \n")
+            .map_err(TerminalError::Stdout)?;
+        writeln!(self.stdout, "📝 - {:?} \n", todo).map_err(TerminalError::Stdout)?;
         Ok(())
     }
 }
