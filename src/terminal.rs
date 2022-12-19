@@ -72,9 +72,9 @@ impl Terminal {
         .map_err(TerminalError::Stdout)?;
         writeln!(
             self.term,
-            "{} - {:?} \n",
+            "{} - {} \n",
             Emoji("✅", ":)"),
-            style(todo).italic().magenta()
+            style(&todo.message).italic().magenta()
         )
         .map_err(TerminalError::Stdout)?;
         Ok(())

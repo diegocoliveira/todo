@@ -1,6 +1,5 @@
-#[derive(Debug, Clone)]
 pub struct Todo {
-    message: String,
+    pub message: String,
 }
 
 impl Todo {
