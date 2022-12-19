@@ -1,3 +1,6 @@
+mod terminal;
+mod todo;
+
 /** steps
 1) create mod: Todo, Terminal
 2) split into files
@@ -7,18 +10,15 @@
 3.2 use struct Emoji
 3.3 use style
 3.4 use thread:sleep
-3.5 use dependencia rand
 
 */
-pub mod todo;
-
-mod terminal;
+use console::{self, style};
 
 fn main() {
-    if let Err(err) = terminal::new_todo() {
+    if let Err(err) = terminal::run() {
         println!(
             "\n🤨_>> Desculpa aconteceu um erro no sistema e o sistema teve que ser encerrado."
         );
-        println!("\n🤨_>> Erro: {}", err);
+        println!("\n🤨_>> Erro: {}", style(err).red());
     }
 }
