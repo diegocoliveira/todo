@@ -7,7 +7,16 @@ use std::{
 
 use super::todo::Todo;
 
-use console::{style, Emoji, Term};
+use console::{style, Emoji, Style, Term};
+
+pub enum Action {
+    Add,
+    List,
+    Exit,
+    Done(i32),
+    Delete(i32),
+    Update(i32, String),
+}
 
 pub enum TerminalError {
     Stdout(io::Error),
@@ -25,53 +34,153 @@ impl Display for TerminalError {
     }
 }
 
-struct Terminal {
+pub struct Terminal {
     term: Term,
 }
 
 impl Terminal {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             //substituição do stdin e stdout por term
             term: Term::stdout(),
         }
     }
 
-    fn input(&mut self) -> Result<String, TerminalError> {
+    fn input(&self) -> Result<String, TerminalError> {
         self.term.read_line().map_err(TerminalError::Stdin)
     }
+    pub fn press_key(&self) -> Result<(), TerminalError> {
+        println!("Pressione qualquer tecla para continuar ...");
+        self.term.read_char().map_err(TerminalError::Stdin)?;
+        Ok(())
+    }
 
-    fn ask_for_new_todo(&mut self) -> Result<Option<Todo>, TerminalError> {
-        println!(
-            "{}_>> Olá, gostaria de adicionar um novo TODO? (s/n)",
-            Emoji("😃", ":)")
-        );
+    pub fn ask_for_todo_action(&self, id: i32) -> Result<Action, TerminalError> {
         loop {
+            println!("{} >> Digite 'f' para marcar como feito", Emoji("✅", ":)"));
+            println!("{} >> Digite 'e' para editar", Emoji("📝", ":)"));
+            println!("{} >> Digite 'd' para deletar", Emoji("🗑 ", ":)"));
+            println!("{} >> Digite 'x' para voltar", Emoji("👈", ":)"));
+
             let answer = self.term.read_char().map_err(TerminalError::Stdin)?;
             match answer {
-                's' => return Ok(Some(self.add_todo()?)),
-                'n' => return Ok(None),
-                'x' => return Err(TerminalError::Test("AlphaEdtech & TerraMagna".to_string())),
-                _ =>  println!("{}_>> Desculpa eu não entendi. Digite 's' se deseja adicionar um novo TODO ou 'n' se deseja sair. ", Emoji("🤨",":/"))
+                'f' => return Ok(Action::Done(id)),
+                'e' => {
+                    println!("{} >> Digite o novo texto do TODO", Emoji("😃", ":)"));
+                    let text = self.input()?;
+                    return Ok(Action::Update(id, text));
+                }
+                'd' => return Ok(Action::Delete(id)),
+                'x' => return Ok(Action::Exit),
+                _ => println!("{}_>> Desculpa eu não entendi.", Emoji("🤨", ":/")),
             }
         }
     }
 
-    fn add_todo(&mut self) -> Result<Todo, TerminalError> {
-        println!("{} >> Qual é o TODO?", Emoji("😃", ":)"));
-        let message = self.input()?;
-        Ok(Todo::new(message))
+    pub fn ask_for_action(&self) -> Result<Action, TerminalError> {
+        println!("\nAguarde ...");
+        thread::sleep(Duration::from_millis(2000));
+        self.term.clear_screen().map_err(TerminalError::Stdout)?;
+        println!(
+            "################# {} ################# \n\n",
+            "BEM VINDO AO TODO CLI"
+        );
+        println!("{}_>> Olá, como posso te ajudar?", Emoji("😃", ":)"));
+        println!(
+            "{} >> Digite 'a' para adicionar um novo TODO",
+            Emoji("✅", ":)")
+        );
+        println!("{} >> Digite 'l' para listar os TODOs", Emoji("📝", ":)"));
+        println!("{} >> Digite 'x' para sair", Emoji("👋", ":)"));
+        loop {
+            let answer = self.term.read_char().map_err(TerminalError::Stdin)?;
+            match answer {
+                'a' => return Ok(Action::Add),
+                'l' => return Ok(Action::List),
+                'x' => return Ok(Action::Exit),
+                'w' => return Err(TerminalError::Test("AlphaEdtech & TerraMagna".to_string())),
+                _ =>  println!("{}_>> Desculpa eu não entendi. Digite 'a' para adicionar um novo TODO, 'l' para listar os TODOs ou 'x' para sair. ", Emoji("🤨",":/"))
+            }
+        }
     }
 
-    fn show_todo(&mut self, todo: &Todo) -> Result<(), TerminalError> {
+    pub fn add_todo(&self) -> Result<String, TerminalError> {
+        self.term.clear_screen().map_err(TerminalError::Stdout)?;
+        println!(
+            "################# {} ################# \n\n",
+            "ADICIONAR TODO"
+        );
+
+        println!(
+            "{} >> Qual é o novo TODO que gostaria de adicionar?",
+            Emoji("😃", ":)")
+        );
+        let message = self.input()?;
+        Ok(message)
+    }
+
+    pub fn list_todos(&self, list: Vec<&Todo>) -> Result<Option<String>, TerminalError> {
+        self.term.clear_screen().map_err(TerminalError::Stdout)?;
+        println!(
+            "################# {} ################# \n\n",
+            "LISTAGEM DOS TODOS"
+        );
+        if !list.is_empty() {
+            writeln!(
+                &self.term,
+                "{}_>> Você tem {} TODOs cadastrados",
+                Emoji("😃", ":)"),
+                style(list.len()).red()
+            )
+            .map_err(TerminalError::Stdout)?;
+
+            for todo in list {
+                let color = if todo.done {
+                    Style::new().magenta()
+                } else {
+                    Style::new().blue()
+                };
+
+                writeln!(
+                    &self.term,
+                    "{} - [{}] {}",
+                    Emoji("✅", ":)"),
+                    color.apply_to(&todo.id),
+                    color.apply_to(&todo.message),
+                )
+                .map_err(TerminalError::Stdout)?;
+            }
+            println!(
+                "\n\n {} >> Digite 'x' para voltar ou informe a chave do Todo que deseja acessar: ",
+                Emoji("😃", ":)")
+            );
+            let answer = self.input()?;
+            if answer == "x" {
+                return Ok(None);
+            } else {
+                return Ok(Some(answer));
+            }
+        } else {
+            writeln!(
+                &self.term,
+                "{}_>> {}",
+                Emoji("😃", ":)"),
+                style("Você não tem TODOs cadastrados").red()
+            )
+            .map_err(TerminalError::Stdout)?;
+        }
+        Ok(None)
+    }
+
+    pub fn show_todo(&self, todo: &Todo) -> Result<(), TerminalError> {
         writeln!(
-            self.term,
+            &self.term,
             "\n{}_>> O TODO foi adicionado com sucesso! \n",
             Emoji("😃", ":)")
         )
         .map_err(TerminalError::Stdout)?;
         writeln!(
-            self.term,
+            &self.term,
             "{} - {} \n",
             Emoji("✅", ":)"),
             style(&todo.message).italic().magenta()
@@ -126,7 +235,7 @@ impl Terminal {
         Ok(())
     }
 
-    fn welcome(&mut self) -> Result<(), TerminalError> {
+    pub fn welcome(&mut self) -> Result<(), TerminalError> {
         self.term
             .set_title(&format!("{} - TODO-CLI ", Emoji("📝", "")));
         writeln!(
@@ -141,7 +250,7 @@ impl Terminal {
             style("TerraMagna & AlphaEdtech").red()
         )
         .map_err(TerminalError::Stdout)?;
-        writeln!(self.term, "Versão: {}", style("0.4.0").bold().green())
+        writeln!(self.term, "Versão: {}", style("0.5.0").bold().green())
             .map_err(TerminalError::Stdout)?;
         writeln!(self.term, "Author: {}\n\n", style("Diego Oliveira").green())
             .map_err(TerminalError::Stdout)?;
@@ -160,22 +269,5 @@ impl Terminal {
         .map_err(TerminalError::Stdout)?;
         thread::sleep(Duration::from_millis(800));
         Ok(())
-    }
-}
-
-pub fn run() -> Result<(), TerminalError> {
-    let mut terminal = Terminal::new();
-    terminal.welcome()?;
-    loop {
-        if let Some(todo) = terminal.ask_for_new_todo()? {
-            terminal.show_todo(&todo)?;
-        } else {
-            println!(
-                "\n{}_>> {} Obrigado por usar o TODO-CLI! ",
-                Emoji("😃", ":)"),
-                Emoji("👋", "Tchau.")
-            );
-            return Ok(());
-        }
     }
 }
