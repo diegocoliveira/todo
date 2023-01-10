@@ -24,7 +24,8 @@ impl TodoCli {
         if let Some(todo) = self.todos.add(item) {
             self.terminal.show_todo(&todo)?;
         } else {
-            println!("Não foi possível adicionar o TODO");
+            self.terminal
+                .write_line("Não foi possível adicionar o TODO")?;
         }
 
         Ok(())
@@ -32,26 +33,28 @@ impl TodoCli {
 
     fn done(&mut self, id: i32) -> Result<(), TerminalError> {
         if let Some(todo) = self.todos.done(id) {
-            println!(
+            self.terminal.write_line(&format!(
                 "[{:?}] {}",
                 style(todo).magenta(),
-                style(" - marcado como feito!").green()
-            );
+                style(" - marcado como feito!").green(),
+            ))?;
         } else {
-            println!("Não foi possível marcar o TODO como feito");
+            self.terminal
+                .write_line("Não foi possível marcar o TODO como feito")?;
         }
         Ok(())
     }
 
     fn delete(&mut self, id: i32) -> Result<(), TerminalError> {
         if let Some(todo) = self.todos.delete(id) {
-            println!(
+            self.terminal.write_line(&format!(
                 "[{:?}] {}",
                 style(todo).magenta(),
                 style(" - deletado com sucesso!").green()
-            );
+            ))?;
         } else {
-            println!("Não foi possível deletar o TODO");
+            self.terminal
+                .write_line("Não foi possível deletar o TODO")?;
         }
 
         Ok(())
@@ -59,25 +62,28 @@ impl TodoCli {
 
     fn update(&mut self, id: i32, message: String) -> Result<(), TerminalError> {
         if let Some(todo) = self.todos.update(id, message) {
-            println!(
+            self.terminal.write_line(&format!(
                 "[{:?}] {}",
                 style(todo).magenta(),
-                style(" - atualizado com sucesso!").green()
-            );
+                style(" - atualizado com sucesso!").green(),
+            ))?;
         } else {
-            println!("Não foi possível atualizar o TODO");
+            self.terminal
+                .write_line("Não foi possível atualizar o TODO")?;
         }
         Ok(())
     }
 
-    fn list(&mut self) -> Result<(), TerminalError> {
-        while let Some(id) = self.terminal.list_todos(self.todos.list())? {
-            let id = id.parse::<i32>().unwrap_or(0);
-            if !self.todos.exist(id) {
-                println!("{} Não existe um TODO com esse ID", Emoji("😕", ":/"));
-                self.terminal.press_key()?;
-                continue;
-            }
+    fn edit(&mut self) -> Result<(), TerminalError> {
+        self.terminal.list_todos(self.todos.list())?;
+        let id = self.terminal.select_todo()?;
+        let id = id.parse::<i32>().unwrap_or(0);
+        if !self.todos.exist(id) {
+            self.terminal.write_line(&format!(
+                "{} Não existe um TODO com esse ID",
+                Emoji("😕", ":/")
+            ))?;
+        } else {
             let action = self.terminal.ask_for_todo_action(id)?;
             match action {
                 Action::Done(id) => self.done(id)?,
@@ -85,17 +91,25 @@ impl TodoCli {
                 Action::Update(id, message) => self.update(id, message)?,
                 _ => (),
             };
-            self.terminal.press_key()?;
         }
+
+        self.terminal.press_key()?;
+
         Ok(())
     }
 
-    fn exit(&self) -> Result<(), TerminalError> {
-        println!(
+    fn list(&mut self) -> Result<(), TerminalError> {
+        self.terminal.list_todos(self.todos.list())?;
+        self.terminal.press_key()?;
+        Ok(())
+    }
+
+    fn exit(&mut self) -> Result<(), TerminalError> {
+        self.terminal.write_line(&format!(
             "\n{}_>> {} Obrigado por usar o TODO-CLI! ",
             Emoji("😃", ":)"),
-            Emoji("👋", "Tchau.")
-        );
+            Emoji("👋", "Tchau."),
+        ))?;
         Ok(())
     }
 
@@ -106,6 +120,7 @@ impl TodoCli {
             match action {
                 Action::Add => self.add()?,
                 Action::List => self.list()?,
+                Action::Edit => self.edit()?,
                 Action::Exit => return self.exit(),
                 _ => (),
             }
@@ -117,7 +132,7 @@ fn main() {
     let mut todo_cli = TodoCli::new();
     if let Err(err) = todo_cli.run() {
         println!(
-            "\n🤨_>> Desculpa aconteceu um erro no sistema e o sistema teve que ser encerrado."
+            "\n🤨_>> Desculpa aconteceu um erro no sistema e o sistema teve que ser encerrado.",
         );
         println!("\n🤨_>> Erro: {}", style(err).red());
     }

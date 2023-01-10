@@ -19,7 +19,7 @@ impl Todo {
 
 pub struct Todos {
     sequence: i32,
-    pub todos: BTreeMap<i32, Todo>,
+    todos: BTreeMap<i32, Todo>,
 }
 
 impl Todos {
