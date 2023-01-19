@@ -63,12 +63,12 @@ impl Terminal {
         }
     }
 
-    pub fn write_line(&mut self, text: &str) -> Result<(), TerminalError> {
+    fn write_line(&mut self, text: &str) -> Result<(), TerminalError> {
         writeln!(self.term, "{}", text).map_err(TerminalError::Stdout)?;
         Ok(())
     }
 
-    pub fn title(&mut self, text: &str) -> Result<(), TerminalError> {
+    fn title(&mut self, text: &str) -> Result<(), TerminalError> {
         self.write_line(&format!(
             "################# {} ################# \n\n",
             style(text).bold().green(),
