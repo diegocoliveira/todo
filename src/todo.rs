@@ -1,6 +1,5 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Display};
 
-#[derive(Debug)]
 pub struct Todo {
     pub id: i32,
     pub message: String,
@@ -15,6 +14,27 @@ impl Todo {
             done: false,
         }
     }
+}
+
+impl Display for Todo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "({}-{}, status: {})",
+            self.id,
+            self.message,
+            self.done.then(|| "feito").unwrap_or("pendente")
+        )
+    }
+}
+
+pub trait TodoStorage {
+    fn add(&mut self, message: String) -> Option<&Todo>;
+    fn list(&self) -> Vec<&Todo>;
+    fn exist(&self, id: i32) -> bool;
+    fn update(&mut self, id: i32, message: String) -> Option<&Todo>;
+    fn done(&mut self, id: i32) -> Option<&Todo>;
+    fn delete(&mut self, id: i32) -> Option<Todo>;
 }
 
 pub struct Todos {
@@ -34,33 +54,35 @@ impl Todos {
         self.sequence += 1;
         self.sequence
     }
+}
 
-    pub fn add(&mut self, message: String) -> Option<&Todo> {
+impl TodoStorage for Todos {
+    fn add(&mut self, message: String) -> Option<&Todo> {
         let id = self.next_id();
         let todo = Todo::new(id, message);
         self.todos.insert(id, todo);
         self.todos.get(&id)
     }
 
-    pub fn list(&self) -> Vec<&Todo> {
+    fn list(&self) -> Vec<&Todo> {
         self.todos.values().collect()
     }
 
-    pub fn exist(&self, id: i32) -> bool {
+    fn exist(&self, id: i32) -> bool {
         self.todos.contains_key(&id)
     }
 
-    pub fn done(&mut self, id: i32) -> Option<&Todo> {
+    fn done(&mut self, id: i32) -> Option<&Todo> {
         let todo = self.todos.get_mut(&id)?;
         todo.done = true;
         Some(todo)
     }
 
-    pub fn delete(&mut self, id: i32) -> Option<Todo> {
+    fn delete(&mut self, id: i32) -> Option<Todo> {
         self.todos.remove(&id)
     }
 
-    pub fn update(&mut self, id: i32, message: String) -> Option<&Todo> {
+    fn update(&mut self, id: i32, message: String) -> Option<&Todo> {
         let todo = self.todos.get_mut(&id)?;
         todo.message = message;
         Some(todo)
