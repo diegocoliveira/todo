@@ -14,9 +14,9 @@ pub enum Action {
     List,
     Edit,
     Exit,
-    Done(i32),
-    Delete(i32),
-    Update(i32, String),
+    Done(u32),
+    Delete(u32),
+    Update(u32, String),
 }
 
 pub enum TerminalError {
@@ -41,9 +41,9 @@ pub trait UserInterface {
     fn welcome(&mut self) -> Result<(), TerminalError>;
     fn exit(&mut self) -> Result<(), TerminalError>;
     fn ask_for_action(&mut self) -> Result<Action, TerminalError>;
-    fn ask_for_todo_action(&mut self, id: i32) -> Result<Action, TerminalError>;
+    fn ask_for_todo_action(&mut self, id: u32) -> Result<Action, TerminalError>;
     fn add_todo(&mut self) -> Result<String, TerminalError>;
-    fn select_todo(&mut self) -> Result<String, TerminalError>;
+    fn select_todo(&mut self) -> Result<Option<u32>, TerminalError>;
     fn list_todo(&mut self, list: Vec<&Todo>) -> Result<(), TerminalError>;
     fn show_sucess(&mut self, todo: &Todo, msg: &str) -> Result<(), TerminalError>;
     fn show_error(&mut self, msg: &str) -> Result<(), TerminalError>;
@@ -65,6 +65,7 @@ impl Terminal {
 
     fn write_line(&mut self, text: &str) -> Result<(), TerminalError> {
         writeln!(self.term, "{}", text).map_err(TerminalError::Stdout)?;
+
         Ok(())
     }
 
@@ -215,7 +216,7 @@ impl UserInterface for Terminal {
         }
     }
 
-    fn ask_for_todo_action(&mut self, id: i32) -> Result<Action, TerminalError> {
+    fn ask_for_todo_action(&mut self, id: u32) -> Result<Action, TerminalError> {
         loop {
             self.write_line(&format!(
                 "{} >> Digite '{}' para marcar como feito",
@@ -271,12 +272,17 @@ impl UserInterface for Terminal {
         Ok(message)
     }
 
-    fn select_todo(&mut self) -> Result<String, TerminalError> {
+    fn select_todo(&mut self) -> Result<Option<u32>, TerminalError> {
         self.write_line(&format!(
             "\n\n {} >> Informe a chave do Todo que deseja acessar: ",
             Emoji("😃", ":)")
         ))?;
-        Ok(self.input()?)
+        let input = self.input()?;
+        if let Ok(id) = input.parse::<u32>() {
+            return Ok(Some(id));
+        } else {
+            return Ok(None);
+        }
     }
 
     fn list_todo(&mut self, list: Vec<&Todo>) -> Result<(), TerminalError> {

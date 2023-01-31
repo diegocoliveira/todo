@@ -28,7 +28,7 @@ impl TodoCli {
         Ok(())
     }
 
-    fn done(&mut self, id: i32) -> Result<(), TerminalError> {
+    fn done(&mut self, id: u32) -> Result<(), TerminalError> {
         if let Some(todo) = self.todo_storage.done(id) {
             self.user_interface
                 .show_sucess(todo, "marcado como feito")?;
@@ -39,7 +39,7 @@ impl TodoCli {
         Ok(())
     }
 
-    fn delete(&mut self, id: i32) -> Result<(), TerminalError> {
+    fn delete(&mut self, id: u32) -> Result<(), TerminalError> {
         if let Some(todo) = self.todo_storage.delete(id) {
             self.user_interface
                 .show_sucess(&todo, "deletado com sucesso")?;
@@ -51,7 +51,7 @@ impl TodoCli {
         Ok(())
     }
 
-    fn update(&mut self, id: i32, message: String) -> Result<(), TerminalError> {
+    fn update(&mut self, id: u32, message: String) -> Result<(), TerminalError> {
         if let Some(todo) = self.todo_storage.update(id, message) {
             self.user_interface
                 .show_sucess(todo, "atualizado com sucesso!")?;
@@ -64,19 +64,22 @@ impl TodoCli {
 
     fn edit(&mut self) -> Result<(), TerminalError> {
         self.user_interface.list_todo(self.todo_storage.list())?;
-        let id = self.user_interface.select_todo()?;
-        let id = id.parse::<i32>().unwrap_or(0);
-        if !self.todo_storage.exist(id) {
-            self.user_interface
-                .show_error("Não existe um TODO com esse ID")?;
+        if let Some(id) = self.user_interface.select_todo()? {
+            if !self.todo_storage.exist(id) {
+                self.user_interface
+                    .show_error("Não existe um TODO com esse ID")?;
+            } else {
+                let action = self.user_interface.ask_for_todo_action(id)?;
+                match action {
+                    Action::Done(id) => self.done(id)?,
+                    Action::Delete(id) => self.delete(id)?,
+                    Action::Update(id, message) => self.update(id, message)?,
+                    _ => (),
+                };
+            }
         } else {
-            let action = self.user_interface.ask_for_todo_action(id)?;
-            match action {
-                Action::Done(id) => self.done(id)?,
-                Action::Delete(id) => self.delete(id)?,
-                Action::Update(id, message) => self.update(id, message)?,
-                _ => (),
-            };
+            self.user_interface
+                .show_error("O ID informado é inválido")?;
         }
 
         self.user_interface.press_key()?;

@@ -1,13 +1,13 @@
 use std::{collections::BTreeMap, fmt::Display};
 
 pub struct Todo {
-    pub id: i32,
+    pub id: u32,
     pub message: String,
     pub done: bool,
 }
 
 impl Todo {
-    pub fn new(id: i32, message: String) -> Self {
+    pub fn new(id: u32, message: String) -> Self {
         Self {
             id,
             message,
@@ -31,15 +31,15 @@ impl Display for Todo {
 pub trait TodoStorage {
     fn add(&mut self, message: String) -> Option<&Todo>;
     fn list(&self) -> Vec<&Todo>;
-    fn exist(&self, id: i32) -> bool;
-    fn update(&mut self, id: i32, message: String) -> Option<&Todo>;
-    fn done(&mut self, id: i32) -> Option<&Todo>;
-    fn delete(&mut self, id: i32) -> Option<Todo>;
+    fn exist(&self, id: u32) -> bool;
+    fn update(&mut self, id: u32, message: String) -> Option<&Todo>;
+    fn done(&mut self, id: u32) -> Option<&Todo>;
+    fn delete(&mut self, id: u32) -> Option<Todo>;
 }
 
 pub struct Todos {
-    sequence: i32,
-    todos: BTreeMap<i32, Todo>,
+    sequence: u32,
+    todos: BTreeMap<u32, Todo>,
 }
 
 impl Todos {
@@ -50,7 +50,7 @@ impl Todos {
         }
     }
 
-    fn next_id(&mut self) -> i32 {
+    fn next_id(&mut self) -> u32 {
         self.sequence += 1;
         self.sequence
     }
@@ -68,21 +68,21 @@ impl TodoStorage for Todos {
         self.todos.values().collect()
     }
 
-    fn exist(&self, id: i32) -> bool {
+    fn exist(&self, id: u32) -> bool {
         self.todos.contains_key(&id)
     }
 
-    fn done(&mut self, id: i32) -> Option<&Todo> {
+    fn done(&mut self, id: u32) -> Option<&Todo> {
         let todo = self.todos.get_mut(&id)?;
         todo.done = true;
         Some(todo)
     }
 
-    fn delete(&mut self, id: i32) -> Option<Todo> {
+    fn delete(&mut self, id: u32) -> Option<Todo> {
         self.todos.remove(&id)
     }
 
-    fn update(&mut self, id: i32, message: String) -> Option<&Todo> {
+    fn update(&mut self, id: u32, message: String) -> Option<&Todo> {
         let todo = self.todos.get_mut(&id)?;
         todo.message = message;
         Some(todo)
