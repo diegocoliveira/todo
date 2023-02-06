@@ -59,7 +59,7 @@ impl Terminal {
         Self {
             //substituição do stdin e stdout por term
             term: Term::stdout(),
-            version: "0.6.0".to_string(),
+            version: "0.8.0".to_string(),
         }
     }
 

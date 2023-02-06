@@ -1,7 +1,20 @@
 use crate::{
     terminal::{Action, TerminalError, UserInterface},
-    todo::TodoStorage,
+    todo::{StorageError, TodoStorage},
 };
+
+pub enum CliError {
+    Storage(StorageError),
+    Terminal(TerminalError),
+}
+impl std::fmt::Display for CliError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CliError::Storage(err) => write!(f, "Erro no armazenamento: {}", err),
+            CliError::Terminal(err) => write!(f, "Erro no terminal: {}", err),
+        }
+    }
+}
 
 pub struct TodoCli {
     user_interface: Box<dyn UserInterface>,
@@ -15,93 +28,150 @@ impl TodoCli {
             todo_storage,
         }
     }
-    fn add(&mut self) -> Result<(), TerminalError> {
-        let item = self.user_interface.add_todo()?;
-        if let Some(todo) = self.todo_storage.add(item) {
+    async fn add(&mut self) -> Result<(), CliError> {
+        let item = self.user_interface.add_todo().map_err(CliError::Terminal)?;
+        if let Some(todo) = self
+            .todo_storage
+            .add(item)
+            .await
+            .map_err(CliError::Storage)?
+        {
             self.user_interface
-                .show_sucess(&todo, "adicionado com sucesso")?;
+                .show_sucess(&todo, "adicionado com sucesso")
+                .map_err(CliError::Terminal)?;
         } else {
             self.user_interface
-                .show_error("Não foi possível adicionar o TODO")?;
+                .show_error("Não foi possível adicionar o TODO")
+                .map_err(CliError::Terminal)?;
         }
-        self.user_interface.press_key()?;
+        self.user_interface
+            .press_key()
+            .map_err(CliError::Terminal)?;
         Ok(())
     }
 
-    fn done(&mut self, id: u32) -> Result<(), TerminalError> {
-        if let Some(todo) = self.todo_storage.done(id) {
+    async fn done(&mut self, id: u32) -> Result<(), CliError> {
+        if let Some(todo) = self
+            .todo_storage
+            .done(id)
+            .await
+            .map_err(CliError::Storage)?
+        {
             self.user_interface
-                .show_sucess(todo, "marcado como feito")?;
+                .show_sucess(todo, "marcado como feito")
+                .map_err(CliError::Terminal)?;
         } else {
             self.user_interface
-                .show_error("Não foi possível marcar o TODO como feito")?;
-        }
-        Ok(())
-    }
-
-    fn delete(&mut self, id: u32) -> Result<(), TerminalError> {
-        if let Some(todo) = self.todo_storage.delete(id) {
-            self.user_interface
-                .show_sucess(&todo, "deletado com sucesso")?;
-        } else {
-            self.user_interface
-                .show_error("Não foi possível deletar o TODO")?;
-        }
-
-        Ok(())
-    }
-
-    fn update(&mut self, id: u32, message: String) -> Result<(), TerminalError> {
-        if let Some(todo) = self.todo_storage.update(id, message) {
-            self.user_interface
-                .show_sucess(todo, "atualizado com sucesso!")?;
-        } else {
-            self.user_interface
-                .show_error("Não foi possível atualizar o TODO")?;
+                .show_error("Não foi possível marcar o TODO como feito")
+                .map_err(CliError::Terminal)?;
         }
         Ok(())
     }
 
-    fn edit(&mut self) -> Result<(), TerminalError> {
-        self.user_interface.list_todo(self.todo_storage.list())?;
-        if let Some(id) = self.user_interface.select_todo()? {
-            if !self.todo_storage.exist(id) {
+    async fn delete(&mut self, id: u32) -> Result<(), CliError> {
+        if let Some(todo) = self
+            .todo_storage
+            .delete(id)
+            .await
+            .map_err(CliError::Storage)?
+        {
+            self.user_interface
+                .show_sucess(&todo, "deletado com sucesso")
+                .map_err(CliError::Terminal)?;
+        } else {
+            self.user_interface
+                .show_error("Não foi possível deletar o TODO")
+                .map_err(CliError::Terminal)?;
+        }
+
+        Ok(())
+    }
+
+    async fn update(&mut self, id: u32, message: String) -> Result<(), CliError> {
+        if let Some(todo) = self
+            .todo_storage
+            .update(id, message)
+            .await
+            .map_err(CliError::Storage)?
+        {
+            self.user_interface
+                .show_sucess(todo, "atualizado com sucesso!")
+                .map_err(CliError::Terminal)?;
+        } else {
+            self.user_interface
+                .show_error("Não foi possível atualizar o TODO")
+                .map_err(CliError::Terminal)?;
+        }
+        Ok(())
+    }
+
+    async fn edit(&mut self) -> Result<(), CliError> {
+        self.user_interface
+            .list_todo(self.todo_storage.list().await.map_err(CliError::Storage)?)
+            .map_err(CliError::Terminal)?;
+        if let Some(id) = self
+            .user_interface
+            .select_todo()
+            .map_err(CliError::Terminal)?
+        {
+            if !self
+                .todo_storage
+                .exist(id)
+                .await
+                .map_err(CliError::Storage)?
+            {
                 self.user_interface
-                    .show_error("Não existe um TODO com esse ID")?;
+                    .show_error("Não existe um TODO com esse ID")
+                    .map_err(CliError::Terminal)?;
             } else {
-                let action = self.user_interface.ask_for_todo_action(id)?;
+                let action = self
+                    .user_interface
+                    .ask_for_todo_action(id)
+                    .map_err(CliError::Terminal)?;
                 match action {
-                    Action::Done(id) => self.done(id)?,
-                    Action::Delete(id) => self.delete(id)?,
-                    Action::Update(id, message) => self.update(id, message)?,
+                    Action::Done(id) => self.done(id).await?,
+                    Action::Delete(id) => self.delete(id).await?,
+                    Action::Update(id, message) => self.update(id, message).await?,
                     _ => (),
                 };
             }
         } else {
             self.user_interface
-                .show_error("O ID informado é inválido")?;
+                .show_error("O ID informado é inválido")
+                .map_err(CliError::Terminal)?;
         }
 
-        self.user_interface.press_key()?;
+        self.user_interface
+            .press_key()
+            .map_err(CliError::Terminal)?;
 
         Ok(())
     }
 
-    fn list(&mut self) -> Result<(), TerminalError> {
-        self.user_interface.list_todo(self.todo_storage.list())?;
-        self.user_interface.press_key()?;
+    async fn list(&mut self) -> Result<(), CliError> {
+        self.user_interface
+            .list_todo(self.todo_storage.list().await.map_err(CliError::Storage)?)
+            .map_err(CliError::Terminal)?;
+        self.user_interface
+            .press_key()
+            .map_err(CliError::Terminal)?;
         Ok(())
     }
 
-    pub fn run(&mut self) -> Result<(), TerminalError> {
-        self.user_interface.welcome()?;
+    pub async fn run(&mut self) -> Result<(), CliError> {
+        self.user_interface.welcome().map_err(CliError::Terminal)?;
         loop {
-            let action = self.user_interface.ask_for_action()?;
+            let action = self
+                .user_interface
+                .ask_for_action()
+                .map_err(CliError::Terminal)?;
             match action {
-                Action::Add => self.add()?,
-                Action::List => self.list()?,
-                Action::Edit => self.edit()?,
-                Action::Exit => return self.user_interface.exit(),
+                Action::Add => self.add().await?,
+                Action::List => self.list().await?,
+                Action::Edit => self.edit().await?,
+                Action::Exit => {
+                    return Ok(self.user_interface.exit().map_err(CliError::Terminal)?)
+                }
                 _ => (),
             }
         }

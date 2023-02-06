@@ -5,12 +5,22 @@ mod todo;
 use cli::TodoCli;
 use console::style;
 
-fn main() {
-    let mut todo_cli = TodoCli::new(
-        Box::new(terminal::Terminal::new()),
-        Box::new(todo::Todos::new()),
-    );
-    if let Err(err) = todo_cli.run() {
+#[tokio::main]
+async fn main() {
+    let storage: Box<dyn todo::TodoStorage>;
+    match todo::Todos::new().await {
+        Ok(todos) => storage = Box::new(todos),
+        Err(err) => {
+            println!(
+                "\n🤨_>> Desculpa aconteceu um erro no sistema e o sistema teve que ser encerrado.",
+            );
+            println!("\n🤨_>> Erro: {}", style(err).red());
+            return;
+        }
+    }
+
+    let mut todo_cli = TodoCli::new(Box::new(terminal::Terminal::new()), storage);
+    if let Err(err) = todo_cli.run().await {
         println!(
             "\n🤨_>> Desculpa aconteceu um erro no sistema e o sistema teve que ser encerrado.",
         );
