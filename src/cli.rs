@@ -17,11 +17,11 @@ pub enum AppError {
 impl Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Stdout(err) => write!(f, "Erro ao escrever no terminal: {}", err),
-            Self::Stdin(err) => write!(f, "Erro ao ler do terminal: {}", err),
-            Self::Write(err) => write!(f, "Não foi possível escrever no arquivo: {}", err),
-            Self::Read(err) => write!(f, "Não foi possível ler o arquivo: {}", err),
-            Self::Parse(err) => write!(f, "Não foi possível parsear o arquivo: {}", err),
+            Self::Stdout(err) => write!(f, "Erro ao escrever no terminal: {err}"),
+            Self::Stdin(err) => write!(f, "Erro ao ler do terminal: {err}"),
+            Self::Write(err) => write!(f, "Não foi possível escrever no arquivo: {err}"),
+            Self::Read(err) => write!(f, "Não foi possível ler o arquivo: {err}"),
+            Self::Parse(err) => write!(f, "Não foi possível parsear o arquivo: {err}"),
         }
     }
 }
@@ -43,7 +43,7 @@ impl TodoCli {
 
         if let Some(todo) = self.todo_storage.add(item).await? {
             self.user_interface
-                .show_sucess(&todo, "adicionado com sucesso")
+                .show_sucess(todo, "adicionado com sucesso")
                 .await?;
         } else {
             self.user_interface
@@ -139,7 +139,7 @@ impl TodoCli {
                 Action::Add => self.add().await?,
                 Action::List => self.list().await?,
                 Action::Edit => self.edit().await?,
-                Action::Exit => return Ok(self.user_interface.exit().await?),
+                Action::Exit => return self.user_interface.exit().await,
                 _ => (),
             }
         }
