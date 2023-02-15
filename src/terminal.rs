@@ -43,12 +43,12 @@ impl Terminal {
             stdin: BufReader::new(tokio::io::stdin()),
             stdout: io::stdout(),
             term: Term::stdout(),
-            version: "0.8.1".to_string(),
+            version: String::from("0.9.0"),
         }
     }
 
     async fn write_line(&mut self, text: &str) -> Result<(), AppError> {
-        let text = format!("{}\n", text);
+        let text = format!("{text}\n");
         self.stdout
             .write(text.as_bytes())
             .await
@@ -140,7 +140,7 @@ impl UserInterface for Terminal {
 
     async fn welcome(&mut self) -> Result<(), AppError> {
         self.term
-            .set_title(&format!("{} - TODO-CLI ", Emoji("📝", "")));
+            .set_title(format!("{} - TODO-CLI ", Emoji("📝", "")));
         self.write_line(&format!(
             "\n\n\n{}",
             style("TODO-CLI").bold().underlined().blue(),
