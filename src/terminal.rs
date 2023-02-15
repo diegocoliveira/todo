@@ -1,7 +1,7 @@
-use std::{fmt::Display, thread, time::Duration};
-use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
-
 use super::todo::Todo;
+use crate::cli::AppError;
+use std::{thread, time::Duration};
+use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 use console::{style, Emoji, Style, Term};
 
@@ -15,34 +15,19 @@ pub enum Action {
     Update(u32, String),
 }
 
-pub enum TerminalError {
-    Stdout(io::Error),
-    Stdin(io::Error),
-    Test(String), // usado para simular um erro
-}
-
-impl Display for TerminalError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Stdout(err) => write!(f, "Erro ao escrever no terminal: {}", err),
-            Self::Stdin(err) => write!(f, "Erro ao ler do terminal: {}", err),
-            Self::Test(err) => write!(f, "Simulação de erro: {}", err),
-        }
-    }
-}
 #[async_trait::async_trait]
 pub trait UserInterface {
-    async fn input(&mut self) -> Result<String, TerminalError>;
-    async fn press_key(&mut self) -> Result<(), TerminalError>;
-    async fn welcome(&mut self) -> Result<(), TerminalError>;
-    async fn exit(&mut self) -> Result<(), TerminalError>;
-    async fn ask_for_action(&mut self) -> Result<Action, TerminalError>;
-    async fn ask_for_todo_action(&mut self, id: u32) -> Result<Action, TerminalError>;
-    async fn add_todo(&mut self) -> Result<String, TerminalError>;
-    async fn select_todo(&mut self) -> Result<Option<u32>, TerminalError>;
-    async fn list_todo(&mut self, list: Vec<&Todo>) -> Result<(), TerminalError>;
-    async fn show_sucess(&mut self, todo: &Todo, msg: &str) -> Result<(), TerminalError>;
-    async fn show_error(&mut self, msg: &str) -> Result<(), TerminalError>;
+    async fn input(&mut self) -> Result<String, AppError>;
+    async fn press_key(&mut self) -> Result<(), AppError>;
+    async fn welcome(&mut self) -> Result<(), AppError>;
+    async fn exit(&mut self) -> Result<(), AppError>;
+    async fn ask_for_action(&mut self) -> Result<Action, AppError>;
+    async fn ask_for_todo_action(&mut self, id: u32) -> Result<Action, AppError>;
+    async fn add_todo(&mut self) -> Result<String, AppError>;
+    async fn select_todo(&mut self) -> Result<Option<u32>, AppError>;
+    async fn list_todo(&mut self, list: Vec<&Todo>) -> Result<(), AppError>;
+    async fn show_sucess(&mut self, todo: &Todo, msg: &str) -> Result<(), AppError>;
+    async fn show_error(&mut self, msg: &str) -> Result<(), AppError>;
 }
 
 pub struct Terminal {
@@ -58,28 +43,28 @@ impl Terminal {
             stdin: BufReader::new(tokio::io::stdin()),
             stdout: io::stdout(),
             term: Term::stdout(),
-            version: "0.8.0".to_string(),
+            version: "0.8.1".to_string(),
         }
     }
 
-    async fn write_line(&mut self, text: &str) -> Result<(), TerminalError> {
+    async fn write_line(&mut self, text: &str) -> Result<(), AppError> {
         let text = format!("{}\n", text);
         self.stdout
             .write(text.as_bytes())
             .await
-            .map_err(TerminalError::Stdout)?;
+            .map_err(AppError::Stdout)?;
         Ok(())
     }
 
-    async fn clean_screen(&mut self) -> Result<(), TerminalError> {
+    async fn clean_screen(&mut self) -> Result<(), AppError> {
         self.stdout
             .write("\x1Bc\x1B[0K".as_bytes())
             .await
-            .map_err(TerminalError::Stdout)?;
+            .map_err(AppError::Stdout)?;
         Ok(())
     }
 
-    async fn title(&mut self, text: &str) -> Result<(), TerminalError> {
+    async fn title(&mut self, text: &str) -> Result<(), AppError> {
         self.clean_screen().await?;
         self.write_line(&format!(
             "################# {} ################# \n\n",
@@ -90,10 +75,10 @@ impl Terminal {
     }
 
     /*essa fn irá continuando o term */
-    fn progress_bar_fake(&mut self) -> Result<(), TerminalError> {
+    fn progress_bar_fake(&mut self) -> Result<(), AppError> {
         let mut progess_bar = String::new();
         let mut progess_bar_ok = String::new();
-        self.term.hide_cursor().map_err(TerminalError::Stdout)?;
+        self.term.hide_cursor().map_err(AppError::Stdout)?;
         for _i in 0..25 {
             progess_bar.push(' ');
         }
@@ -106,9 +91,7 @@ impl Terminal {
                     3 => "\\",
                     _ => " ",
                 };
-                self.term
-                    .clear_last_lines(1)
-                    .map_err(TerminalError::Stdout)?;
+                self.term.clear_last_lines(1).map_err(AppError::Stdout)?;
                 self.term
                     .write_line(&format!(
                         "Carregando ... {}% -[{}] - [{}{}]",
@@ -117,7 +100,7 @@ impl Terminal {
                         style(&progess_bar_ok).on_green(),
                         progess_bar
                     ))
-                    .map_err(TerminalError::Stdout)?;
+                    .map_err(AppError::Stdout)?;
                 thread::sleep(Duration::from_millis(100));
             }
             progess_bar_ok.push(' ');
@@ -125,39 +108,37 @@ impl Terminal {
         }
         thread::sleep(Duration::from_millis(1500));
 
-        self.term.show_cursor().map_err(TerminalError::Stdout)?;
-        self.term
-            .clear_last_lines(1)
-            .map_err(TerminalError::Stdout)?;
+        self.term.show_cursor().map_err(AppError::Stdout)?;
+        self.term.clear_last_lines(1).map_err(AppError::Stdout)?;
         self.term
             .write_line("Pressione qualquer tecla para iniciar...")
-            .map_err(TerminalError::Stdout)?;
-        self.term.read_key().map_err(TerminalError::Stdin)?;
+            .map_err(AppError::Stdout)?;
+        self.term.read_key().map_err(AppError::Stdin)?;
         Ok(())
     }
 }
 
 #[async_trait::async_trait]
 impl UserInterface for Terminal {
-    async fn input(&mut self) -> Result<String, TerminalError> {
-        //self.term.read_line().map_err(TerminalError::Stdin)
+    async fn input(&mut self) -> Result<String, AppError> {
+        //self.term.read_line().map_err(AppError::Stdin)
         let mut buffer = String::new();
         self.stdin
             .read_line(&mut buffer)
             .await
-            .map_err(TerminalError::Stdin)?;
+            .map_err(AppError::Stdin)?;
 
         Ok(buffer.trim().to_string())
     }
 
-    async fn press_key(&mut self) -> Result<(), TerminalError> {
+    async fn press_key(&mut self) -> Result<(), AppError> {
         self.write_line("\n\n Pressione qualquer tecla para continuar ...")
             .await?;
-        self.term.read_char().map_err(TerminalError::Stdin)?;
+        self.term.read_char().map_err(AppError::Stdin)?;
         Ok(())
     }
 
-    async fn welcome(&mut self) -> Result<(), TerminalError> {
+    async fn welcome(&mut self) -> Result<(), AppError> {
         self.term
             .set_title(&format!("{} - TODO-CLI ", Emoji("📝", "")));
         self.write_line(&format!(
@@ -176,7 +157,7 @@ impl UserInterface for Terminal {
             .await?;
 
         self.progress_bar_fake()?;
-        //self.term.clear_screen().map_err(TerminalError::Stdout)?;
+        //self.term.clear_screen().map_err(AppError::Stdout)?;
         self.clean_screen().await?;
 
         self.write_line(&format!("{}_>> Bem vindo ao TODO-CLI!", Emoji("😃", ":)")))
@@ -191,7 +172,7 @@ impl UserInterface for Terminal {
         Ok(())
     }
 
-    async fn exit(&mut self) -> Result<(), TerminalError> {
+    async fn exit(&mut self) -> Result<(), AppError> {
         self.write_line(&format!(
             "\n{}_>> {} Obrigado por usar o TODO-CLI! ",
             Emoji("😃", ":)"),
@@ -201,7 +182,7 @@ impl UserInterface for Terminal {
         Ok(())
     }
 
-    async fn ask_for_action(&mut self) -> Result<Action, TerminalError> {
+    async fn ask_for_action(&mut self) -> Result<Action, AppError> {
         self.write_line("\nAguarde ...").await?;
         thread::sleep(Duration::from_millis(2000));
         self.title("BEM VINDO AO TODO CLI").await?;
@@ -235,14 +216,13 @@ impl UserInterface for Terminal {
         ))
         .await?;
         loop {
-            let answer = self.term.read_char().map_err(TerminalError::Stdin)?;
+            let answer = self.term.read_char().map_err(AppError::Stdin)?;
             self.write_line("").await?; //para quebrar a linha após a resposta
             match answer {
                 'a' => return Ok(Action::Add),
                 'l' => return Ok(Action::List),
                 'e' => return Ok(Action::Edit),
                 'x' => return Ok(Action::Exit),
-                'w' => return Err(TerminalError::Test("AlphaEdtech & TerraMagna".to_string())),
                 _ => {
                     self.write_line(&format!(
                         "{}_>> Desculpa eu não entendi.",
@@ -254,7 +234,7 @@ impl UserInterface for Terminal {
         }
     }
 
-    async fn ask_for_todo_action(&mut self, id: u32) -> Result<Action, TerminalError> {
+    async fn ask_for_todo_action(&mut self, id: u32) -> Result<Action, AppError> {
         loop {
             self.write_line(&format!(
                 "{} >> Digite '{}' para marcar como feito",
@@ -281,7 +261,7 @@ impl UserInterface for Terminal {
             ))
             .await?;
 
-            let answer = self.term.read_char().map_err(TerminalError::Stdin)?;
+            let answer = self.term.read_char().map_err(AppError::Stdin)?;
             match answer {
                 'f' => return Ok(Action::Done(id)),
                 'e' => {
@@ -306,7 +286,7 @@ impl UserInterface for Terminal {
         }
     }
 
-    async fn add_todo(&mut self) -> Result<String, TerminalError> {
+    async fn add_todo(&mut self) -> Result<String, AppError> {
         self.title("ADICIONAR TODO").await?;
 
         self.write_line(&format!(
@@ -318,7 +298,7 @@ impl UserInterface for Terminal {
         Ok(message)
     }
 
-    async fn select_todo(&mut self) -> Result<Option<u32>, TerminalError> {
+    async fn select_todo(&mut self) -> Result<Option<u32>, AppError> {
         self.write_line(&format!(
             "\n\n {} >> Informe a chave do Todo que deseja acessar: ",
             Emoji("😃", ":)")
@@ -332,7 +312,7 @@ impl UserInterface for Terminal {
         }
     }
 
-    async fn list_todo(&mut self, list: Vec<&Todo>) -> Result<(), TerminalError> {
+    async fn list_todo(&mut self, list: Vec<&Todo>) -> Result<(), AppError> {
         self.title("LISTAGEM DOS TODOS").await?;
         if !list.is_empty() {
             self.write_line(&format!(
@@ -368,7 +348,7 @@ impl UserInterface for Terminal {
         Ok(())
     }
 
-    async fn show_sucess(&mut self, todo: &Todo, msg: &str) -> Result<(), TerminalError> {
+    async fn show_sucess(&mut self, todo: &Todo, msg: &str) -> Result<(), AppError> {
         self.write_line(&format!("\n{}_>> O TODO: \n", Emoji("😃", ":)")))
             .await?;
 
@@ -381,7 +361,7 @@ impl UserInterface for Terminal {
         Ok(())
     }
 
-    async fn show_error(&mut self, msg: &str) -> Result<(), TerminalError> {
+    async fn show_error(&mut self, msg: &str) -> Result<(), AppError> {
         self.write_line(&format!("{}_>> {}", Emoji("😕", ":/"), style(msg).red()))
             .await?;
         Ok(())

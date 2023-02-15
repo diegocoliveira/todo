@@ -1,17 +1,27 @@
+use std::fmt::Display;
+
 use crate::{
-    terminal::{Action, TerminalError, UserInterface},
-    todo::{StorageError, TodoStorage},
+    terminal::{Action, UserInterface},
+    todo::TodoStorage,
 };
 
-pub enum CliError {
-    Storage(StorageError),
-    Terminal(TerminalError),
+use tokio::io;
+
+pub enum AppError {
+    Stdout(io::Error),
+    Stdin(io::Error),
+    Write(io::Error),
+    Read(io::Error),
+    Parse(serde_json::Error),
 }
-impl std::fmt::Display for CliError {
+impl Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CliError::Storage(err) => write!(f, "Erro no armazenamento: {}", err),
-            CliError::Terminal(err) => write!(f, "Erro no terminal: {}", err),
+            Self::Stdout(err) => write!(f, "Erro ao escrever no terminal: {}", err),
+            Self::Stdin(err) => write!(f, "Erro ao ler do terminal: {}", err),
+            Self::Write(err) => write!(f, "Não foi possível escrever no arquivo: {}", err),
+            Self::Read(err) => write!(f, "Não foi possível ler o arquivo: {}", err),
+            Self::Parse(err) => write!(f, "Não foi possível parsear o arquivo: {}", err),
         }
     }
 }
@@ -28,123 +38,73 @@ impl TodoCli {
             todo_storage,
         }
     }
-    async fn add(&mut self) -> Result<(), CliError> {
-        let item = self
-            .user_interface
-            .add_todo()
-            .await
-            .map_err(CliError::Terminal)?;
-        if let Some(todo) = self
-            .todo_storage
-            .add(item)
-            .await
-            .map_err(CliError::Storage)?
-        {
+    async fn add(&mut self) -> Result<(), AppError> {
+        let item = self.user_interface.add_todo().await?;
+
+        if let Some(todo) = self.todo_storage.add(item).await? {
             self.user_interface
                 .show_sucess(&todo, "adicionado com sucesso")
-                .await
-                .map_err(CliError::Terminal)?;
+                .await?;
         } else {
             self.user_interface
                 .show_error("Não foi possível adicionar o TODO")
-                .await
-                .map_err(CliError::Terminal)?;
+                .await?;
         }
-        self.user_interface
-            .press_key()
-            .await
-            .map_err(CliError::Terminal)?;
+        self.user_interface.press_key().await?;
         Ok(())
     }
 
-    async fn done(&mut self, id: u32) -> Result<(), CliError> {
-        if let Some(todo) = self
-            .todo_storage
-            .done(id)
-            .await
-            .map_err(CliError::Storage)?
-        {
+    async fn done(&mut self, id: u32) -> Result<(), AppError> {
+        if let Some(todo) = self.todo_storage.done(id).await? {
             self.user_interface
                 .show_sucess(todo, "marcado como feito")
-                .await
-                .map_err(CliError::Terminal)?;
+                .await?;
         } else {
             self.user_interface
                 .show_error("Não foi possível marcar o TODO como feito")
-                .await
-                .map_err(CliError::Terminal)?;
+                .await?;
         }
         Ok(())
     }
 
-    async fn delete(&mut self, id: u32) -> Result<(), CliError> {
-        if let Some(todo) = self
-            .todo_storage
-            .delete(id)
-            .await
-            .map_err(CliError::Storage)?
-        {
+    async fn delete(&mut self, id: u32) -> Result<(), AppError> {
+        if let Some(todo) = self.todo_storage.delete(id).await? {
             self.user_interface
                 .show_sucess(&todo, "deletado com sucesso")
-                .await
-                .map_err(CliError::Terminal)?;
+                .await?;
         } else {
             self.user_interface
                 .show_error("Não foi possível deletar o TODO")
-                .await
-                .map_err(CliError::Terminal)?;
+                .await?;
         }
 
         Ok(())
     }
 
-    async fn update(&mut self, id: u32, message: String) -> Result<(), CliError> {
-        if let Some(todo) = self
-            .todo_storage
-            .update(id, message)
-            .await
-            .map_err(CliError::Storage)?
-        {
+    async fn update(&mut self, id: u32, message: String) -> Result<(), AppError> {
+        if let Some(todo) = self.todo_storage.update(id, message).await? {
             self.user_interface
                 .show_sucess(todo, "atualizado com sucesso!")
-                .await
-                .map_err(CliError::Terminal)?;
+                .await?;
         } else {
             self.user_interface
                 .show_error("Não foi possível atualizar o TODO")
-                .await
-                .map_err(CliError::Terminal)?;
+                .await?;
         }
         Ok(())
     }
 
-    async fn edit(&mut self) -> Result<(), CliError> {
+    async fn edit(&mut self) -> Result<(), AppError> {
         self.user_interface
-            .list_todo(self.todo_storage.list().await.map_err(CliError::Storage)?)
-            .await
-            .map_err(CliError::Terminal)?;
-        if let Some(id) = self
-            .user_interface
-            .select_todo()
-            .await
-            .map_err(CliError::Terminal)?
-        {
-            if !self
-                .todo_storage
-                .exist(id)
-                .await
-                .map_err(CliError::Storage)?
-            {
+            .list_todo(self.todo_storage.list().await?)
+            .await?;
+        if let Some(id) = self.user_interface.select_todo().await? {
+            if !self.todo_storage.exist(id).await? {
                 self.user_interface
                     .show_error("Não existe um TODO com esse ID")
-                    .await
-                    .map_err(CliError::Terminal)?;
+                    .await?;
             } else {
-                let action = self
-                    .user_interface
-                    .ask_for_todo_action(id)
-                    .await
-                    .map_err(CliError::Terminal)?;
+                let action = self.user_interface.ask_for_todo_action(id).await?;
                 match action {
                     Action::Done(id) => self.done(id).await?,
                     Action::Delete(id) => self.delete(id).await?,
@@ -155,52 +115,31 @@ impl TodoCli {
         } else {
             self.user_interface
                 .show_error("O ID informado é inválido")
-                .await
-                .map_err(CliError::Terminal)?;
+                .await?;
         }
 
-        self.user_interface
-            .press_key()
-            .await
-            .map_err(CliError::Terminal)?;
+        self.user_interface.press_key().await?;
 
         Ok(())
     }
 
-    async fn list(&mut self) -> Result<(), CliError> {
+    async fn list(&mut self) -> Result<(), AppError> {
         self.user_interface
-            .list_todo(self.todo_storage.list().await.map_err(CliError::Storage)?)
-            .await
-            .map_err(CliError::Terminal)?;
-        self.user_interface
-            .press_key()
-            .await
-            .map_err(CliError::Terminal)?;
+            .list_todo(self.todo_storage.list().await?)
+            .await?;
+        self.user_interface.press_key().await?;
         Ok(())
     }
 
-    pub async fn run(&mut self) -> Result<(), CliError> {
-        self.user_interface
-            .welcome()
-            .await
-            .map_err(CliError::Terminal)?;
+    pub async fn run(&mut self) -> Result<(), AppError> {
+        self.user_interface.welcome().await?;
         loop {
-            let action = self
-                .user_interface
-                .ask_for_action()
-                .await
-                .map_err(CliError::Terminal)?;
+            let action = self.user_interface.ask_for_action().await?;
             match action {
                 Action::Add => self.add().await?,
                 Action::List => self.list().await?,
                 Action::Edit => self.edit().await?,
-                Action::Exit => {
-                    return Ok(self
-                        .user_interface
-                        .exit()
-                        .await
-                        .map_err(CliError::Terminal)?)
-                }
+                Action::Exit => return Ok(self.user_interface.exit().await?),
                 _ => (),
             }
         }
