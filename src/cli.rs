@@ -1,7 +1,30 @@
+use std::fmt::Display;
+
 use crate::{
-    terminal::{Action, TerminalError, UserInterface},
+    terminal::{Action, UserInterface},
     todo::TodoStorage,
 };
+
+use tokio::io;
+
+pub enum AppError {
+    Stdout(io::Error),
+    Stdin(io::Error),
+    Write(io::Error),
+    Read(io::Error),
+    Parse(serde_json::Error),
+}
+impl Display for AppError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Stdout(err) => write!(f, "Erro ao escrever no terminal: {}", err),
+            Self::Stdin(err) => write!(f, "Erro ao ler do terminal: {}", err),
+            Self::Write(err) => write!(f, "Não foi possível escrever no arquivo: {}", err),
+            Self::Read(err) => write!(f, "Não foi possível ler o arquivo: {}", err),
+            Self::Parse(err) => write!(f, "Não foi possível parsear o arquivo: {}", err),
+        }
+    }
+}
 
 pub struct TodoCli {
     user_interface: Box<dyn UserInterface>,
@@ -15,93 +38,108 @@ impl TodoCli {
             todo_storage,
         }
     }
-    fn add(&mut self) -> Result<(), TerminalError> {
-        let item = self.user_interface.add_todo()?;
-        if let Some(todo) = self.todo_storage.add(item) {
+    async fn add(&mut self) -> Result<(), AppError> {
+        let item = self.user_interface.add_todo().await?;
+
+        if let Some(todo) = self.todo_storage.add(item).await? {
             self.user_interface
-                .show_sucess(&todo, "adicionado com sucesso")?;
+                .show_sucess(&todo, "adicionado com sucesso")
+                .await?;
         } else {
             self.user_interface
-                .show_error("Não foi possível adicionar o TODO")?;
+                .show_error("Não foi possível adicionar o TODO")
+                .await?;
         }
-        self.user_interface.press_key()?;
+        self.user_interface.press_key().await?;
         Ok(())
     }
 
-    fn done(&mut self, id: u32) -> Result<(), TerminalError> {
-        if let Some(todo) = self.todo_storage.done(id) {
+    async fn done(&mut self, id: u32) -> Result<(), AppError> {
+        if let Some(todo) = self.todo_storage.done(id).await? {
             self.user_interface
-                .show_sucess(todo, "marcado como feito")?;
+                .show_sucess(todo, "marcado como feito")
+                .await?;
         } else {
             self.user_interface
-                .show_error("Não foi possível marcar o TODO como feito")?;
-        }
-        Ok(())
-    }
-
-    fn delete(&mut self, id: u32) -> Result<(), TerminalError> {
-        if let Some(todo) = self.todo_storage.delete(id) {
-            self.user_interface
-                .show_sucess(&todo, "deletado com sucesso")?;
-        } else {
-            self.user_interface
-                .show_error("Não foi possível deletar o TODO")?;
-        }
-
-        Ok(())
-    }
-
-    fn update(&mut self, id: u32, message: String) -> Result<(), TerminalError> {
-        if let Some(todo) = self.todo_storage.update(id, message) {
-            self.user_interface
-                .show_sucess(todo, "atualizado com sucesso!")?;
-        } else {
-            self.user_interface
-                .show_error("Não foi possível atualizar o TODO")?;
+                .show_error("Não foi possível marcar o TODO como feito")
+                .await?;
         }
         Ok(())
     }
 
-    fn edit(&mut self) -> Result<(), TerminalError> {
-        self.user_interface.list_todo(self.todo_storage.list())?;
-        if let Some(id) = self.user_interface.select_todo()? {
-            if !self.todo_storage.exist(id) {
+    async fn delete(&mut self, id: u32) -> Result<(), AppError> {
+        if let Some(todo) = self.todo_storage.delete(id).await? {
+            self.user_interface
+                .show_sucess(&todo, "deletado com sucesso")
+                .await?;
+        } else {
+            self.user_interface
+                .show_error("Não foi possível deletar o TODO")
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn update(&mut self, id: u32, message: String) -> Result<(), AppError> {
+        if let Some(todo) = self.todo_storage.update(id, message).await? {
+            self.user_interface
+                .show_sucess(todo, "atualizado com sucesso!")
+                .await?;
+        } else {
+            self.user_interface
+                .show_error("Não foi possível atualizar o TODO")
+                .await?;
+        }
+        Ok(())
+    }
+
+    async fn edit(&mut self) -> Result<(), AppError> {
+        self.user_interface
+            .list_todo(self.todo_storage.list().await?)
+            .await?;
+        if let Some(id) = self.user_interface.select_todo().await? {
+            if !self.todo_storage.exist(id).await? {
                 self.user_interface
-                    .show_error("Não existe um TODO com esse ID")?;
+                    .show_error("Não existe um TODO com esse ID")
+                    .await?;
             } else {
-                let action = self.user_interface.ask_for_todo_action(id)?;
+                let action = self.user_interface.ask_for_todo_action(id).await?;
                 match action {
-                    Action::Done(id) => self.done(id)?,
-                    Action::Delete(id) => self.delete(id)?,
-                    Action::Update(id, message) => self.update(id, message)?,
+                    Action::Done(id) => self.done(id).await?,
+                    Action::Delete(id) => self.delete(id).await?,
+                    Action::Update(id, message) => self.update(id, message).await?,
                     _ => (),
                 };
             }
         } else {
             self.user_interface
-                .show_error("O ID informado é inválido")?;
+                .show_error("O ID informado é inválido")
+                .await?;
         }
 
-        self.user_interface.press_key()?;
+        self.user_interface.press_key().await?;
 
         Ok(())
     }
 
-    fn list(&mut self) -> Result<(), TerminalError> {
-        self.user_interface.list_todo(self.todo_storage.list())?;
-        self.user_interface.press_key()?;
+    async fn list(&mut self) -> Result<(), AppError> {
+        self.user_interface
+            .list_todo(self.todo_storage.list().await?)
+            .await?;
+        self.user_interface.press_key().await?;
         Ok(())
     }
 
-    pub fn run(&mut self) -> Result<(), TerminalError> {
-        self.user_interface.welcome()?;
+    pub async fn run(&mut self) -> Result<(), AppError> {
+        self.user_interface.welcome().await?;
         loop {
-            let action = self.user_interface.ask_for_action()?;
+            let action = self.user_interface.ask_for_action().await?;
             match action {
-                Action::Add => self.add()?,
-                Action::List => self.list()?,
-                Action::Edit => self.edit()?,
-                Action::Exit => return self.user_interface.exit(),
+                Action::Add => self.add().await?,
+                Action::List => self.list().await?,
+                Action::Edit => self.edit().await?,
+                Action::Exit => return Ok(self.user_interface.exit().await?),
                 _ => (),
             }
         }
