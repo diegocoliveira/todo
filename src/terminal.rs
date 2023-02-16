@@ -306,9 +306,9 @@ impl UserInterface for Terminal {
         .await?;
         let input = self.input().await?;
         if let Ok(id) = input.parse::<u32>() {
-            return Ok(Some(id));
+            Ok(Some(id))
         } else {
-            return Ok(None);
+            Ok(None)
         }
     }
 

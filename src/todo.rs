@@ -107,9 +107,10 @@ impl TodoStorage for Todos {
     async fn delete(&mut self, id: u32) -> Result<Option<Todo>, AppError> {
         if let Some(todo) = self.todo_list.remove(&id) {
             self.save().await?;
-            return Ok(Some(todo));
+            Ok(Some(todo))
+        } else {
+            Ok(None)
         }
-        Ok(None)
     }
 
     async fn update(&mut self, id: u32, message: String) -> Result<Option<&Todo>, AppError> {
