@@ -7,9 +7,9 @@ use console::style;
 
 #[tokio::main]
 async fn main() {
-    let storage: Box<dyn todo::TodoStorage>;
+    let storage: Box<dyn todo::TodoStorage> =
     match todo::Todos::new().await {
-        Ok(todos) => storage = Box::new(todos),
+        Ok(todos) => Box::new(todos),
         Err(err) => {
             println!(
                 "\n🤨_>> Desculpa aconteceu um erro no sistema e o sistema teve que ser encerrado.",
@@ -17,7 +17,7 @@ async fn main() {
             println!("\n🤨_>> Erro: {}", style(err).red());
             return;
         }
-    }
+    };
 
     let mut todo_cli = TodoCli::new(Box::new(terminal::Terminal::new()), storage);
     if let Err(err) = todo_cli.run().await {

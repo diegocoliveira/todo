@@ -26,7 +26,7 @@ impl Display for Todo {
             "({}-{}, status: {})",
             self.id,
             self.message,
-            self.done.then_some("feito").unwrap_or("pendente")
+            if self.done { "feito" } else { "pendente" }
         )
     }
 }
@@ -54,7 +54,7 @@ impl Todos {
             .await
             .map_err(AppError::Read)?;
         let (sequence, todo_list) =
-            serde_json::from_str(&contents).unwrap_or((0 as u32, BTreeMap::<u32, Todo>::new()));
+            serde_json::from_str(&contents).unwrap_or((0_u32, BTreeMap::<u32, Todo>::new()));
 
         Ok(Self {
             sequence,
