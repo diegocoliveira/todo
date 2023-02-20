@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Todo {
     pub id: u32,
     pub message: String,
@@ -17,6 +17,12 @@ impl Todo {
         }
     }
 }
+/*
+impl PartialEq for Todo {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id && self.message == other.message && self.done == other.done
+    }
+}*/
 
 impl Display for Todo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -29,5 +35,3 @@ impl Display for Todo {
         )
     }
 }
-
-

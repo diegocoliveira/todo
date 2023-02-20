@@ -5,7 +5,7 @@ use crate::{cli::AppError, todo::Todo};
 pub struct TodoFileImpl {
     path: String,
 }
-
+#[cfg_attr(test, mockall::automock)]
 #[async_trait::async_trait(?Send)]
 pub trait TodoFile {
     async fn load(&self) -> Result<(u32, BTreeMap<u32, Todo>), AppError>;
@@ -50,7 +50,7 @@ impl TodoFile for TodoFileImpl {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::storage::mocks;
 

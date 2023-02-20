@@ -124,3 +124,147 @@ pub mod mocks {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn exist() {
+        let mut mock = file::MockTodoFile::default();
+        mock.expect_load()
+            .return_once(|| Ok(mocks::sequence_map_todo()));
+
+        let todos = Todos::new(Box::new(mock)).await.unwrap();
+        assert!(todos.exist(1).await.unwrap()); //true
+        assert!(todos.exist(2).await.unwrap()); //true
+        assert!(!todos.exist(3).await.unwrap()); //false
+        assert!(!todos.exist(4).await.unwrap()); //false
+        assert!(todos.exist(5).await.unwrap()); //true
+    }
+
+    #[tokio::test]
+    async fn list() {
+        let mut mock = file::MockTodoFile::default();
+        mock.expect_load()
+            .return_once(|| Ok(mocks::sequence_map_todo()));
+
+        let todos = Todos::new(Box::new(mock)).await.unwrap();
+        let list = todos.list().await.unwrap();
+        assert_eq!(list.len(), 3);
+        assert_eq!(
+            *list[0],
+            Todo {
+                id: 1,
+                message: "todo 1".to_string(),
+                done: true
+            }
+        );
+        assert_eq!(
+            *list[1],
+            Todo {
+                id: 2,
+                message: "todo 2".to_string(),
+                done: false
+            }
+        );
+        assert_eq!(
+            *list[2],
+            Todo {
+                id: 5,
+                message: "todo 5".to_string(),
+                done: false
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn add() {
+        let mut mock = file::MockTodoFile::default();
+        mock.expect_load()
+            .return_once(|| Ok(mocks::sequence_map_todo()));
+
+        mock.expect_save()
+            .withf(|sequence, map| *sequence == 6 && map.len() == 4)
+            .times(1)
+            .returning(|_, _| Ok(()));
+
+        let mut todos = Todos::new(Box::new(mock)).await.unwrap();
+        todos.add("todo 6".to_string()).await.unwrap();
+
+        assert_eq!(
+            *todos.todo_list.get(&6).unwrap(),
+            Todo {
+                id: 6,
+                message: "todo 6".to_string(),
+                done: false
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn update() {
+        let mut mock = file::MockTodoFile::default();
+        mock.expect_load()
+            .return_once(|| Ok(mocks::sequence_map_todo()));
+
+        mock.expect_save()
+            .withf(|sequence, map| *sequence == 5 && map.len() == 3)
+            .times(1)
+            .returning(|_, _| Ok(()));
+
+        let mut todos = Todos::new(Box::new(mock)).await.unwrap();
+
+        assert_eq!(
+            todos.update(3, "não existe".to_string()).await.unwrap(),
+            None
+        );
+
+        todos.update(5, "todo alterado".to_string()).await.unwrap();
+
+        assert_eq!(
+            todos.todo_list.get(&5).unwrap().message,
+            "todo alterado".to_string()
+        );
+    }
+
+    #[tokio::test]
+    async fn done() {
+        let mut mock = file::MockTodoFile::default();
+        mock.expect_load()
+            .return_once(|| Ok(mocks::sequence_map_todo()));
+
+        mock.expect_save()
+            .withf(|sequence, map| *sequence == 5 && map.len() == 3)
+            .times(1)
+            .returning(|_, _| Ok(()));
+
+        let mut todos = Todos::new(Box::new(mock)).await.unwrap();
+
+        assert_eq!(todos.done(3).await.unwrap(), None);
+
+        todos.done(5).await.unwrap();
+
+        assert_eq!(todos.todo_list.get(&5).unwrap().done, true);
+    }
+
+    #[tokio::test]
+    async fn delete() {
+        let mut mock = file::MockTodoFile::default();
+        mock.expect_load()
+            .return_once(|| Ok(mocks::sequence_map_todo()));
+
+        mock.expect_save()
+            .withf(|sequence, map| *sequence == 5 && map.len() == 2)
+            .times(1)
+            .returning(|_, _| Ok(()));
+
+        let mut todos = Todos::new(Box::new(mock)).await.unwrap();
+
+        assert_eq!(todos.delete(3).await.unwrap(), None);
+
+        todos.delete(5).await.unwrap();
+
+        assert!(!todos.exist(5).await.unwrap());
+    }
+}
