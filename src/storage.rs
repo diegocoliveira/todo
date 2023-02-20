@@ -85,3 +85,42 @@ impl TodoStorage for Todos {
         Ok(self.todo_list.get(&id)) //realizando uma nova busca para retornar o todo sem a mutabilidade
     }
 }
+
+#[cfg(test)]
+pub mod mocks {
+    use std::collections::BTreeMap;
+
+    use super::Todo;
+
+    pub fn sequence_map_todo() -> (u32, BTreeMap<u32, Todo>) {
+        (
+            5_u32,
+            BTreeMap::from([
+                (
+                    1,
+                    Todo {
+                        id: 1,
+                        message: "todo 1".to_string(),
+                        done: true,
+                    },
+                ),
+                (
+                    2,
+                    Todo {
+                        id: 2,
+                        message: "todo 2".to_string(),
+                        done: false,
+                    },
+                ),
+                (
+                    5,
+                    Todo {
+                        id: 5,
+                        message: "todo 5".to_string(),
+                        done: false,
+                    },
+                ),
+            ]),
+        )
+    }
+}
