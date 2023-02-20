@@ -1,4 +1,5 @@
 mod cli;
+mod storage;
 mod terminal;
 mod todo;
 
@@ -7,8 +8,8 @@ use console::style;
 
 #[tokio::main]
 async fn main() {
-    let storage: Box<dyn todo::TodoStorage> =
-    match todo::Todos::new().await {
+    let file = Box::new(storage::file::TodoFileImpl::new("todo_storage.json"));
+    let storage: Box<dyn storage::TodoStorage> = match storage::Todos::new(file).await {
         Ok(todos) => Box::new(todos),
         Err(err) => {
             println!(

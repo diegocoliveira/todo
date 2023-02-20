@@ -1,12 +1,13 @@
 use std::fmt::Display;
 
 use crate::{
+    storage::TodoStorage,
     terminal::{Action, UserInterface},
-    todo::TodoStorage,
 };
 
 use tokio::io;
 
+#[derive(Debug)]
 pub enum AppError {
     Stdout(io::Error),
     Stdin(io::Error),
