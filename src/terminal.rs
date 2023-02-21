@@ -15,6 +15,7 @@ pub enum Action {
     Update(u32, String),
 }
 
+#[cfg_attr(test, mockall::automock)]
 #[async_trait::async_trait]
 pub trait UserInterface {
     async fn input(&mut self) -> Result<String, AppError>;
@@ -25,7 +26,7 @@ pub trait UserInterface {
     async fn ask_for_todo_action(&mut self, id: u32) -> Result<Action, AppError>;
     async fn add_todo(&mut self) -> Result<String, AppError>;
     async fn select_todo(&mut self) -> Result<Option<u32>, AppError>;
-    async fn list_todo(&mut self, list: Vec<&Todo>) -> Result<(), AppError>;
+    async fn list_todo<'a, 'b>(&'a mut self, list: Vec<&'b Todo>) -> Result<(), AppError>;
     async fn show_sucess(&mut self, todo: &Todo, msg: &str) -> Result<(), AppError>;
     async fn show_error(&mut self, msg: &str) -> Result<(), AppError>;
 }

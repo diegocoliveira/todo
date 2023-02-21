@@ -4,13 +4,18 @@ use std::collections::BTreeMap;
 
 use crate::{cli::AppError, todo::Todo};
 
+#[cfg_attr(test, mockall::automock)]
 #[async_trait::async_trait(?Send)]
 pub trait TodoStorage {
-    async fn add(&mut self, message: String) -> Result<Option<&Todo>, AppError>;
-    async fn list(&self) -> Result<Vec<&Todo>, AppError>;
+    async fn add<'a>(&'a mut self, message: String) -> Result<Option<&'a Todo>, AppError>;
+    async fn list<'a>(&'a self) -> Result<Vec<&'a Todo>, AppError>;
     async fn exist(&self, id: u32) -> Result<bool, AppError>;
-    async fn update(&mut self, id: u32, message: String) -> Result<Option<&Todo>, AppError>;
-    async fn done(&mut self, id: u32) -> Result<Option<&Todo>, AppError>;
+    async fn update<'a>(
+        &'a mut self,
+        id: u32,
+        message: String,
+    ) -> Result<Option<&'a Todo>, AppError>;
+    async fn done<'a>(&'a mut self, id: u32) -> Result<Option<&'a Todo>, AppError>;
     async fn delete(&mut self, id: u32) -> Result<Option<Todo>, AppError>;
 }
 
@@ -245,7 +250,7 @@ mod tests {
 
         todos.done(5).await.unwrap();
 
-        assert_eq!(todos.todo_list.get(&5).unwrap().done, true);
+        assert!(todos.todo_list.get(&5).unwrap().done);
     }
 
     #[tokio::test]
